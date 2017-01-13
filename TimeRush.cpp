@@ -12,6 +12,7 @@
 #include "stdafx.h"
 #include <iostream>
 #include "windows.h"
+#include <algorithm>
 
 using namespace std;
 
@@ -45,7 +46,7 @@ private:
 	}
 	void KillPlr(int plrnum)//Удаляем игрока из списка живых
 	{
-		Player[plrnum-1] = 0;
+		Player[plrnum - 1] = 0;
 	}
 	void RefreshMap()//Обновление карты в консоли
 	{
@@ -98,7 +99,7 @@ private:
 			{
 				x--;
 				t = Map[x][y];
-			} while ((t <= '1') && (t >= '8'));
+			} while ((t == '0') && (t != 'x'));
 			KillPlr(Map[x][y] - '0');
 			Map[x][y] = '0';
 		}
@@ -108,7 +109,7 @@ private:
 			{
 				y++;
 				t = Map[x][y];
-			} while ((t <= '1') && (t >= '8'));
+			} while ((t == '0') && (t != 'x'));
 			KillPlr(Map[x][y] - '0');
 			Map[x][y] = '0';
 		}
@@ -118,7 +119,7 @@ private:
 			{
 				x++;
 				t = Map[x][y];
-			} while ((t <= '1') && (t >= '8'));
+			} while ((t == '0') && (t != 'x'));
 			KillPlr(Map[x][y] - '0');
 			Map[x][y] = '0';
 		}
@@ -128,7 +129,7 @@ private:
 			{
 				y--;
 				t = Map[x][y];
-			} while ((t <= '1') && (t >= '8'));
+			} while ((t == '0') && (t != 'x'));
 			KillPlr(Map[x][y] - '0');
 			Map[x][y] = '0';
 		}
@@ -233,10 +234,151 @@ private:
 			}
 		}
 	}
-	void DoMyMove(int x, int y)
+	void DoMyMove(int x, int y)//Производим свой ход
 	{
+		/*int killway, moves = 4;
+		while (((killway = FindToKill(y, x)) != 0) && (moves != 0))
+		{
+			Kill(killway, y, x);//Если можно кого-то убить, убиваем
+			moves--;
+		}
+		FindClothestEnemy(y, x);//Если никого нельзя убить, ищем путь к врагу
+		//Идем по найденному пути
+		/*int map[20][20], d = 0;
+		map[x][y] = d;
+		do
+		{
+		if (x != 0) if ((map[x - 1][y] != map[x][y] - 1) && (Map[x - 1][y] == '0'))
+		map[x - 1][y] = d + 1;
+		if (x != 19) if ((map[x + 1][y] != map[x][y] - 1) && (Map[x + 1][y] == '0'))
+		map[x + 1][y] = d + 1;
+		if (y != 0) if ((map[x][y - 1] != map[x][y] - 1) && (Map[x][y - 1] == '0'))
+		map[x][y - 1] = d + 1;
+		if (y != 0) if ((map[x][y + 1] != map[x][y] - 1) && (Map[x][y + 1] == '0'))
+		map[x][y + 1] = d + 1;
 
+		} while (1);*/
 	}
+	XY FindClothestEnemy(int x, int y)//Находим ближайшего врага
+	{
+		XY Position[4], ClothestEnemyPos;
+		ClothestEnemyPos = FindPos(1);
+		for (int i = 2; i <= 3; i++)
+		{
+			Position[i] = FindPos(i);
+			if (sqrt((ClothestEnemyPos.x - x) ^ 2 + (ClothestEnemyPos.y - y) ^ 2) < sqrt((Position[i].x - x) ^ 2 + (Position[i].y - y) ^ 2))
+				ClothestEnemyPos = FindPos(i);
+		}
+		return ClothestEnemyPos;
+	}
+	int FindShortestWay(int x, int y)//Алгоритм Ли
+	{
+		XY ClothestEnemyPos = FindClothestEnemy(x, y);
+		/*int neighbor[4];
+		neighbor[0] = Map[x - 1][y] - '0';
+		neighbor[1] = Map[x][y + 1] - '0';
+		neighbor[2] = Map[x + 1][y] - '0';
+		neighbor[3] = Map[x][y - 1] - '0';
+		for (int i = 0; i < 4; i++)
+		{
+		if (neighbor[i] == -2) neighbor[i] = 99999;
+		}
+		sort(neighbor, neighbor + 4);
+		for (int i = x - 1; i <= x + 1; i++) {
+		for (int j = y + 1; j >= y - 1; j--) {
+		if (Map[x, y] == neighbors[0]){
+		// и указываем вектору координаты клетки, в которую переместим нашего юнита
+		moveTO = new Vector3(x, y, 10);
+		}
+		}
+		}
+		//если мы не нашли куда перемещать юнита, то оставляем его на старой позиции.
+		// это случается, если вокруг юнита, во всех 8 клетках, уже размещены другие юниты
+		if (moveTO == new Vector3(-1, 0, 10))
+		moveTO = new Vector3(currentPosition.x, currentPosition.y, 10);
+
+		//и ура, наконец-то мы перемещаем нашего юнита
+		// теперь он на 1 клетку ближе к врагу
+		transform.localPosition = moveTO;
+		
+		char WorkMap[20][20];
+		for (int i = 0; i < 20; i++)
+		for (int j = 0; j < 20; j++) WorkMap[i][j] = Map[i][j];
+		int iter(0), iterk(100);
+		while (iter < iterk)
+		{
+			for (int i = 0; i < 20; i++)
+			{
+				for (int j = 0; j < 20; j++)
+				{
+					if (WorkMap[i][j] == iter)
+					{
+						if (WorkMap[i + 1][j] == '0')WorkMap[i + 1][j] = iter + 1 + '0';
+						if (WorkMap[i - 1][j] == '0')WorkMap[i - 1][j] = iter + 1 + '0';
+						if (WorkMap[i][j + 1] == '0')WorkMap[i][j + 1] = iter + 1 + '0';
+						if (WorkMap[i][j - 1] == '0')WorkMap[i][j - 1] = iter + 1 + '0';
+
+						if (WorkMap[i + 1][j] == WorkMap[ClothestEnemyPos.x][ClothestEnemyPos.y]) break;
+						if (WorkMap[i - 1][j] == WorkMap[ClothestEnemyPos.x][ClothestEnemyPos.y]) break;
+						if (WorkMap[i][j + 1] == WorkMap[ClothestEnemyPos.x][ClothestEnemyPos.y]) break;
+						if (WorkMap[i][j - 1] == WorkMap[ClothestEnemyPos.x][ClothestEnemyPos.y]) break;
+					}
+				}
+			}
+			iter++;
+		}
+		if ((WorkMap[ClothestEnemyPos.x + 1 + 1][ClothestEnemyPos.y + 1] == 'x' || WorkMap[ClothestEnemyPos.x + 1 + 1][ClothestEnemyPos.y + 1] == '0') 
+			&& (WorkMap[ClothestEnemyPos.x - 1 + 1][ClothestEnemyPos.y + 1] == '0' || WorkMap[ClothestEnemyPos.x - 1 + 1][ClothestEnemyPos.y + 1] == 'x')
+			&& (WorkMap[ClothestEnemyPos.x + 1][ClothestEnemyPos.y] == '0' || WorkMap[ClothestEnemyPos.x + 1][ClothestEnemyPos.y] == 'x') 
+			&& (WorkMap[ClothestEnemyPos.x + 1][ClothestEnemyPos.y + 2] == 'x' || WorkMap[ClothestEnemyPos.x + 1][ClothestEnemyPos.y + 2] == '0'))return 0;
+		if ((WorkMap[x + 1 + 1][y + 1] == 'x' || WorkMap[x + 1 + 1][y + 1] == '0') && (WorkMap[x - 1 + 1][y + 1] == '0' || WorkMap[x - 1 + 1][y + 1] == 'x') 
+			&& (WorkMap[x + 1][y] == '0' || WorkMap[x + 1][y] == 'x') && (WorkMap[x + 1][y + 2] == 'x' || WorkMap[x + 1][y + 2] == '0'))return 0;
+		cout << endl;
+		for (int i = 1; i < 20 - 1; i++)
+		{
+			for (int j = 1; j < 20 - 1; j++)
+			{
+				cout << setw(3) << WorkMap[i][j];
+			}
+			cout << endl;
+		}
+		int X = x + 1, Y = y + 1, X1(0), Y1(0);
+		char minn('x');
+		while (1)
+		{
+			if (WorkMap[X + 1][Y] < minn)
+			{
+				minn = WorkMap[X + 1][Y];
+				X1 = X + 1;
+				Y1 = Y;
+			}
+			if (WorkMap[X - 1][Y] < minn)
+			{
+				minn = WorkMap[X - 1][Y];
+				X1 = X - 1;
+				Y1 = Y;
+			}
+			if (WorkMap[X][Y + 1] < minn)
+			{
+				minn = WorkMap[X][Y + 1];
+				X1 = X;
+				Y1 = Y + 1;
+			}
+			if (WorkMap[X][Y - 1] < minn)
+			{
+				minn = WorkMap[X][Y - 1];
+				X1 = X;
+				Y1 = Y - 1;
+			}
+			X = X1;
+			Y = Y1;
+			if (WorkMap[X1][Y1] == '0')break;
+			Map[X1][Y1] = '-1';
+		}
+		//print_map(MAP);
+		//return 0;*/
+	}
+
 public:
 	Maps()
 	{
@@ -249,7 +391,7 @@ public:
 	}
 	bool CheckPlayersToWin()//Проверка победы 1-игра окончена, 0-игра продолжается
 	{
-		if (((Player[0] == 0) && (Player[1] == 0) && (Player[2] == 0) && (Player[3] == 0)) || (Player[7] == 0))
+		if ((Player[0,1,2,3] == 0) || (Player[7] == 0))
 			return 1;
 		else return 0;
 	}
@@ -304,8 +446,8 @@ public:
 			XY PlrPos = FindPos(plrnum);//Ищем позицию текущего игрока
 			if (plrnum != 8)
 			{
-				if ((killway = FindToKill(PlrPos.y, PlrPos.x)) == 0) DoMove(plrnum, PlrPos.y, PlrPos.x);//Если никого нельзя убить, ходим
-				else Kill(killway, PlrPos.y, PlrPos.x);//Если можно, убиваем
+				if ((killway = FindToKill(PlrPos.y, PlrPos.x)) != 0) Kill(killway, PlrPos.y, PlrPos.x);//Если можно кого-то убить, убиваем
+				else DoMove(plrnum, PlrPos.y, PlrPos.x);//Если никого нельзя убить, ходим
 			}
 			else DoMyMove(PlrPos.y, PlrPos.x);
 			//Sleep(50); //И без остановки все передвижения видны на карте в консоли
@@ -325,17 +467,8 @@ int _tmain(int argc, _TCHAR* argv[])
 		for (int plr = 1; plr < 9; plr++)//Игроки ходят по очереди
 		{
 			if (Mp1.Alive(plr)) Mp1.MakeTurn(plr);//Да будет резня ВХАХА
-			try            //Проверка на победку
-			{
-				if (Mp1.CheckPlayersToWin()) throw invalid_argument("Игра окончена");
-			}
-			catch (invalid_argument& e)
-			{
-				Mp1.SaveMap(OutputPath);//Сохраняем в отдельный файл исход битвы	
-				return 0;
-			}
 		}
-	} while (1);
-	/*Mp1.SaveMap(OutputPath);//Сохраняем в отдельный файл исход битвы	
-	return 0;*/
+	} while (Mp1.CheckPlayersToWin()==0);//Проверка победы одной из сторон
+	Mp1.SaveMap(OutputPath);//Сохраняем в отдельный файл исход битвы	
+	return 0;
 }
