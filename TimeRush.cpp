@@ -20,7 +20,6 @@ class Maps
 private:
 	FILE * Input_data, *Output_data;
 	char Map[20][20];
-	//int x, y, c;
 	bool Player[8];
 	struct XY
 	{
@@ -29,22 +28,15 @@ private:
 	struct XYD
 	{
 		XY xy;
-		int d = 99;
+		int d = 888;
 	};
-	bool AddPlayer(int c) //Проверка игроков при добавлении на карту
+	bool TryToAddPlayer(int c) //Проверка игроков при добавлении на карту
 	{
 		int num;
-		try
-		{
-			if (((num = (char)c - '0')<9) && (num>0) && Player[num - 1] != 1)
-				Player[num - 1] = 1;
-			else if (Player[num - 1] == 1) throw invalid_argument("Неправильный ввод игроков!");
-		}
-		catch (invalid_argument& e)
-		{
-			cerr << e.what() << endl;
-			return 0;
-		}
+		if (Player[(num = (char)c - '0') - 1] == 1)	return 1;
+		else
+		if ((num<9) && (num>0) && Player[num - 1] != 1)
+			Player[num - 1] = 1;
 		return 0;
 	}
 	void KillPlr(int plrnum)//Удаляем игрока из списка живых
@@ -244,7 +236,7 @@ private:
 			}
 		}
 	}
-	void MakeMyTurn(int x, int y)//Производим свои ходы
+	bool MakeMyTurn(int x, int y)//Производим свои ходы
 	{
 		XY MyPos;
 		MyPos.x = x;
@@ -260,14 +252,14 @@ private:
 		{
 			if ((Map[i][j] >= '1') && (Map[i][j] <= '7') || (Map[i][j] == 'x'))
 			{
-				WorkMap[i][j] = 111;
+				WorkMap[i][j] = 999;
 			}
 			else WorkMap[i][j] = Map[i][j] - '0';
 		}
 		int(*WorkMapLink)[20] = WorkMap;//Создаем массив ссылок на рабочий дубликат карты для экономии памяти
 		while (moves > 0)
 		{
-			Sleep(400);
+			//Sleep(400);
 			killway = FindToKill(7, MyPos.x, MyPos.y);
 			if ((moves != 1) && (killway != 0))//Если не последний ход и можно кого-то убить, убиваем 
 			{
@@ -284,23 +276,30 @@ private:
 				DrowMap = 1;
 				SpreadWaveBig(MyPos.x, MyPos.y, WorkMapLink);//Создаем карту дальностей хода
 				EnemyPos = FindClothestEnemy(WorkMapLink);
-				if (EnemyPos.xy.x == 99)
-				{//не работает ????
-					moves = 0;
-					continue;//Если враги недоступны, заканчиваем наш ход
+				if (EnemyPos.xy.x == 99)//Если враги все убиты, заканчиваем наш ход
+				{
+					return 0;
 				}
-				int increment = inc;//Обход костыля
+				if (EnemyPos.d == 888)//Если враги недоступны, заканчиваем наш ход
+				{
+					return 1;
+				}
+						
+				int increment = inc;//Обход бага
 				DrawShortestWay(WorkMapLink, EnemyPos);//Рисуем кратчайший путь и делаем ход
 				inc = increment;//Почему-то иногда после функции DrawShortestWay inc становится равным -1 ????????????
+
 				if ((moves == 1) && (killway != 0))//Если всех убили, заканчиваем ход
 				{
 					Map[MySafePos.x][MySafePos.y] = '8';
 					Map[MyPos.x][MyPos.y] = '0';
 					moves = 0;
+					RefreshMap();
 					continue;
 				}
 				else MySafePos = MyPos;
 				MyPos = DoMyMove(MyPos.x, MyPos.y, WorkMapLink, inc, moves, MySafePos);
+				RefreshMap();
 				inc++;
 				moves--;
 				continue;
@@ -314,16 +313,18 @@ private:
 			}
 			else MySafePos = MyPos;
 			MyPos = DoMyMove(MyPos.x, MyPos.y, WorkMapLink, inc, moves, MySafePos);//Если никого нельзя убить и путь нарисован, просто идем по нему
+			RefreshMap();
 			inc++;
 			moves--;
 		}
+		return 0;
 	}
 	void CleanWorkMap(int(*WorkMapLink)[20], int x, int y)
 	{
 		for (int i = 0; i <= 19; i++)
 		for (int j = 0; j <= 19; j++)
 		{
-			if (WorkMapLink[i][j] != 111)
+			if (WorkMapLink[i][j] != -999)
 			{
 				WorkMapLink[i][j] = 0;
 			}
@@ -338,7 +339,6 @@ private:
 		for (int j = 0; j <= 19; j++)
 			mmap[i][j] = WorkMapLink[i][j];
 		*/
-		RefreshMap();
 		XY MyPos;
 		if (x != 0) if (WorkMapLink[x - 1][y] == -inc)
 		{
@@ -396,7 +396,7 @@ private:
 		{
 			if (moves == 1)
 			{
-				if (MoveIsSafe(y - 1, y))
+				if (MoveIsSafe(x, y - 1))
 				{
 					Map[x][y] = '0';
 					WorkMapLink[x][y] = 0;
@@ -422,7 +422,7 @@ private:
 		{
 			if (moves == 1)
 			{
-				if (MoveIsSafe(y + 1, y))
+				if (MoveIsSafe(x, y + 1))
 				{
 					Map[x][y] = '0';
 					WorkMapLink[x][y] = 0;
@@ -500,14 +500,14 @@ private:
 	{
 		XYD Position[4];
 		XY ClothestEnemyXY;
-		int ShortestEnmDist=99;
+		int ShortestEnmDist=888;
 		for (int i = 0; i <= 3; i++)
 		{
 			Position[i].xy = FindPos(i);
 			if (Position[i].xy.x != 99)
 			{
 				Position[i] = TryToFindEnemyXYD(Position[i], WorkMapLink);
-				if (ShortestEnmDist == 99)
+				if (ShortestEnmDist == 888)
 				{
 					ShortestEnmDist = Position[i].d;
 					ClothestEnemyXY = Position[i].xy;
@@ -524,7 +524,10 @@ private:
 		EnemyPos.xy = ClothestEnemyXY;
 		return EnemyPos;
 	}
-	XYD TryToFindEnemyXYD(XYD EnemyPos, int(*WorkMapLink)[20])//Доработка алгоритма Ли к нескольким целям
+	XYD TryToFindEnemyXYD(XYD EnemyPos, int(*WorkMapLink)[20])
+		//Доработка алгоритма Ли для нескольких целей
+		//В связи с особенностями алгоритма Ли, приходится искать пустую клетку рядом с 
+		//искомым врагом и использовать дистанцию до этой клетки+1
 	{
 		int a, direction = 0;
 		if ((EnemyPos.xy.x != 19) && ((a = WorkMapLink[EnemyPos.xy.y][EnemyPos.xy.x + 1]) != 0) && (a < EnemyPos.d))
@@ -584,25 +587,25 @@ private:
 	int SpreadWaveL(int x, int y, int(*WorkMapLink)[20], int d, int ChangedSells)//Локальное распространение волны
 	{
 		if (x - 1 >= 0)
-		if ((WorkMapLink[x - 1][y] != 111) && (WorkMapLink[x - 1][y] == 0))
+		if ((WorkMapLink[x - 1][y] != 999) && (WorkMapLink[x - 1][y] == 0))
 		{
 			WorkMapLink[x - 1][y] = d + 1;
 			ChangedSells++;
 		}
 		if (x + 1 < 20)
-		if ((WorkMapLink[x + 1][y] != 111) && (WorkMapLink[x + 1][y] == 0))
+		if ((WorkMapLink[x + 1][y] != 999) && (WorkMapLink[x + 1][y] == 0))
 		{
 			WorkMapLink[x + 1][y] = d + 1;
 			ChangedSells++;
 		}
 		if (y - 1 >= 0)
-		if ((WorkMapLink[x][y - 1] != 111) && (WorkMapLink[x][y - 1] == 0))
+		if ((WorkMapLink[x][y - 1] != 999) && (WorkMapLink[x][y - 1] == 0))
 		{
 			WorkMapLink[x][y - 1] = d + 1;
 			ChangedSells++;
 		}
 		if (y + 1 < 20)
-		if ((WorkMapLink[x][y + 1] != 111) && (WorkMapLink[x][y + 1] == 0))
+		if ((WorkMapLink[x][y + 1] != 999) && (WorkMapLink[x][y + 1] == 0))
 		{
 			WorkMapLink[x][y + 1] = d + 1;
 			ChangedSells++;
@@ -620,8 +623,8 @@ public:
 	}
 	bool CheckPlayersToWin()//Проверка победы 1-игра окончена, 0-игра продолжается
 	{
-		if (((Player[0] == 0)&(Player[1] == 0)&(Player[2] == 0)&(Player[3] == 0))
-			|| (Player[7] == 0))	return 1;
+		if ((Player[0] == 0)&(Player[1] == 0)&(Player[2] == 0)&(Player[3] == 0)) return 1;
+		if (Player[7] == 0) return 2;
 		return 0;
 	}
 	bool Alive(int plrnum)//Проверка, есть ли игрок в списке живых
@@ -629,7 +632,7 @@ public:
 		if (Player[plrnum] == 0) return 0;
 		else return 1;
 	}
-	void AddMap(char path[])//Ввод данных карты
+	bool AddMap(char path[])//Ввод данных карты
 	{
 		int x = 0, y = 0, c;
 		cout << "Reading file...\n";
@@ -641,7 +644,7 @@ public:
 			c = fgetc(Input_data);
 			do
 			{
-				AddPlayer(c);
+				if (TryToAddPlayer(c)) return 1;
 				Map[x][y] = c;//Преобразовываем
 				y++;
 				cout << (char)c;
@@ -652,6 +655,7 @@ public:
 			y = 0;
 		} while ((c != -1) && (feof(Input_data) == 0));
 		fclose(Input_data);
+		return 0;
 	}
 	void SaveMap(char path[])//Сохраняем в отдельный файл исход битвы
 	{
@@ -669,39 +673,114 @@ public:
 		}
 		cout << "\nProfit.";
 	}
-	void MakeTurn(int plrnum)//Производим ход
+	bool MakeTurn(int plrnum)//Производим ход
 	{
 		int killway;
 		XY PlrPos = FindPos(plrnum);//Ищем позицию текущего игрока
 		if (plrnum != 7)
 		{
-			Sleep(400);
+			//Sleep(200);
 			if ((killway = FindToKill(plrnum, PlrPos.y, PlrPos.x)) != 0) 
 				Kill(killway, PlrPos.y, PlrPos.x);//Если можно кого-то убить, убиваем
 			else DoMove(plrnum, PlrPos.y, PlrPos.x);//Если никого нельзя убить, ходим
 		}
-		else MakeMyTurn(PlrPos.y, PlrPos.x);
+		else if(MakeMyTurn(PlrPos.y, PlrPos.x)) return 1;
 		RefreshMap();//Обновляем карту в консоли
+		return 0;
 	}
 };
-int _tmain(int argc, _TCHAR* argv[])
+int main(int argc, char* argv[])
 {
-	Maps Mp1;
-	char InputPath[] = "C:\\Users\\САША\\Documents\\Visual Studio 2013\\Projects\\TimeRush\\TimeRushIn.txt";
-	char OutputPath[] = "C:\\Users\\САША\\Documents\\Visual Studio 2013\\Projects\\TimeRush\\TimeRushOut.txt";
 	setlocale(LC_ALL, "rus");
-	Mp1.AddMap(InputPath);//Загружаем карту из файла	
+	int EndParam = 0;
+	char MapNumber[] = "012345678";
+	bool argument=0;
+	//Код для аргументов командной строки
+		if (argc == 1)// если передаем аргументы, то argc будет больше 1(в зависимости от кол-ва аргументов)
+		{
+			cout << "Not arguments" << endl;
+			cout << "Будет произведена загрузка стандартной карты." << endl;
+		}
+		else
+		{
+			if (argc > 2)
+			{
+				cout << "Слишком много аргументов." << endl;
+				cout << "Будет произведена загрузка стандартной карты." << endl;
+			}
+			else
+			{
+				for (int i = 0; i < 9; i++)
+				{
+					if (*argv[1] == MapNumber[i])
+					{
+						argument = 1;
+						cout << "Будет загружена " << argv[1] << "-я карта..." << endl;
+					}
+				}
+				if (!argument)
+				{
+					cout << "Введен неправильный аргумент" << endl;
+					cout << "Будет произведена загрузка стандартной карты." << endl;
+				}
+			}
+		}
+	system("pause");
+	//
+	char InputPath[250];
+	char OutputPath[250];
+	Maps Mp1;
+	if (!argument)
+	{
+		strcpy(InputPath, "C:\\Users\\САША\\Documents\\Visual Studio 2013\\Projects\\TimeRush\\Maps\\TimeRushIn0.txt");
+		strcpy(OutputPath, "C:\\Users\\САША\\Documents\\Visual Studio 2013\\Projects\\TimeRush\\Maps\\OutFiles\\TimeRushOut0.txt");
+	}
+	else
+	{
+		strcpy(InputPath, "C:\\Users\\САША\\Documents\\Visual Studio 2013\\Projects\\TimeRush\\Maps\\TimeRushIn");
+		strcpy(OutputPath, "C:\\Users\\САША\\Documents\\Visual Studio 2013\\Projects\\TimeRush\\Maps\\OutFiles\\TimeRushOut");
+		char EndOfPathName[] = ".txt";
+		strcat(InputPath, argv[1]);
+		strcat(InputPath, EndOfPathName);
+		strcat(OutputPath, argv[1]);
+		strcat(OutputPath, EndOfPathName);
+	}
+	if (Mp1.AddMap(InputPath)) 
+	{
+		cout << "\nНеправильный ввод игроков!" << endl;//Загружаем карту из файла	
+		goto EndProgramm;
+	}
 	//Запускаем ходы
-	do
+	EndParam = Mp1.CheckPlayersToWin();//Проверка победы одной из сторон
+	while (EndParam == 0)
 	{
 		for (int plr = 0; plr < 8; plr++)//Игроки ходят по очереди
 		{
 			if (Mp1.Alive(plr))
 			{
-				Mp1.MakeTurn(plr);//Да будет резня ВХАХА
+				if (Mp1.MakeTurn(plr))
+				{
+					cout << "\nВраги недоступны!" << endl;
+					goto EndProgramm;
+				}
+				EndParam = Mp1.CheckPlayersToWin();
 			}
 		}
-	} while (Mp1.CheckPlayersToWin() == 0);//Проверка победы одной из сторон
-	Mp1.SaveMap(OutputPath);//Сохраняем в отдельный файл исход битвы	
+	} 
+EndProgramm:	
+	switch (EndParam)
+	{
+	case(1) :
+	{
+				cout << "Победа!" << endl;
+				break;
+	}
+	case(2) :
+	{
+				cout << "Вы проиграли!" << endl;
+				break;
+	}
+	}
+	Mp1.SaveMap(OutputPath);//Сохраняем в отдельный файл исход битвы
 	return 0;
 }
